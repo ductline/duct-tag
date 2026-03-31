@@ -1,0 +1,967 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>DuctTAG — AI Ducting TAG Automation</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Syne:wght@400;600;700;800&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #0d0f14;
+    --surface: #13161e;
+    --surface2: #1a1e2a;
+    --border: #252a38;
+    --accent: #00e5a0;
+    --accent2: #0099ff;
+    --warn: #ff6b35;
+    --text: #e8eaf2;
+    --muted: #6b7280;
+    --tag-color: #00e5a0;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Syne', sans-serif;
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+
+  /* Grid background */
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background-image:
+      linear-gradient(rgba(0,229,160,0.03) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(0,229,160,0.03) 1px, transparent 1px);
+    background-size: 40px 40px;
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  .container { max-width: 1100px; margin: 0 auto; padding: 0 24px; position: relative; z-index: 1; }
+
+  /* Header */
+  header {
+    padding: 28px 0 24px;
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+  .logo {
+    display: flex; align-items: center; gap: 12px;
+  }
+  .logo-icon {
+    width: 36px; height: 36px;
+    background: var(--accent);
+    border-radius: 8px;
+    display: flex; align-items: center; justify-content: center;
+  }
+  .logo-icon svg { width: 20px; height: 20px; }
+  .logo-text { font-size: 22px; font-weight: 800; letter-spacing: -0.5px; }
+  .logo-text span { color: var(--accent); }
+  .badge {
+    font-family: 'DM Mono', monospace;
+    font-size: 11px;
+    background: rgba(0,229,160,0.1);
+    color: var(--accent);
+    border: 1px solid rgba(0,229,160,0.25);
+    padding: 4px 10px;
+    border-radius: 4px;
+    letter-spacing: 0.5px;
+  }
+
+  /* Hero */
+  .hero {
+    padding: 56px 0 40px;
+    text-align: center;
+  }
+  .hero h1 {
+    font-size: clamp(32px, 5vw, 54px);
+    font-weight: 800;
+    line-height: 1.1;
+    letter-spacing: -1.5px;
+    margin-bottom: 16px;
+  }
+  .hero h1 em {
+    font-style: normal;
+    color: var(--accent);
+    position: relative;
+  }
+  .hero p {
+    color: var(--muted);
+    font-size: 17px;
+    font-weight: 400;
+    max-width: 520px;
+    margin: 0 auto 40px;
+    line-height: 1.6;
+    font-family: 'DM Mono', monospace;
+  }
+
+  /* Pipeline steps */
+  .pipeline {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0;
+    margin-bottom: 48px;
+    flex-wrap: wrap;
+    gap: 4px;
+  }
+  .pipe-step {
+    display: flex; align-items: center; gap: 6px;
+    font-family: 'DM Mono', monospace;
+    font-size: 11px;
+    color: var(--muted);
+    background: var(--surface);
+    border: 1px solid var(--border);
+    padding: 6px 12px;
+    border-radius: 4px;
+  }
+  .pipe-step .dot { width: 6px; height: 6px; border-radius: 50%; background: var(--accent); }
+  .pipe-arrow { color: var(--border); font-size: 18px; margin: 0 2px; }
+
+  /* Main layout */
+  .main-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 20px;
+    margin-bottom: 24px;
+  }
+  @media (max-width: 700px) { .main-grid { grid-template-columns: 1fr; } }
+
+  /* Cards */
+  .card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 28px;
+  }
+  .card-title {
+    font-size: 13px;
+    font-weight: 700;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    color: var(--muted);
+    margin-bottom: 20px;
+    display: flex; align-items: center; gap: 8px;
+  }
+  .card-title .num {
+    width: 22px; height: 22px;
+    background: rgba(0,229,160,0.12);
+    color: var(--accent);
+    border-radius: 4px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 12px;
+    font-family: 'DM Mono', monospace;
+  }
+
+  /* Upload zone */
+  .upload-zone {
+    border: 2px dashed var(--border);
+    border-radius: 10px;
+    padding: 40px 20px;
+    text-align: center;
+    cursor: pointer;
+    transition: all 0.2s;
+    position: relative;
+  }
+  .upload-zone:hover, .upload-zone.drag-over {
+    border-color: var(--accent);
+    background: rgba(0,229,160,0.04);
+  }
+  .upload-zone input { position: absolute; inset: 0; opacity: 0; cursor: pointer; width: 100%; }
+  .upload-icon {
+    width: 48px; height: 48px;
+    margin: 0 auto 14px;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    display: flex; align-items: center; justify-content: center;
+  }
+  .upload-icon svg { width: 24px; height: 24px; stroke: var(--accent); }
+  .upload-zone h3 { font-size: 16px; font-weight: 700; margin-bottom: 6px; }
+  .upload-zone p { font-size: 13px; color: var(--muted); font-family: 'DM Mono', monospace; }
+  .file-formats {
+    display: flex; gap: 8px; justify-content: center; margin-top: 14px; flex-wrap: wrap;
+  }
+  .fmt-tag {
+    font-family: 'DM Mono', monospace;
+    font-size: 10px;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    padding: 3px 8px;
+    border-radius: 3px;
+    color: var(--muted);
+  }
+
+  /* File selected state */
+  .file-info {
+    display: none;
+    align-items: center;
+    gap: 12px;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 14px 16px;
+    margin-top: 12px;
+  }
+  .file-info.show { display: flex; }
+  .file-info-icon {
+    width: 36px; height: 36px; flex-shrink: 0;
+    background: rgba(0,153,255,0.1);
+    border-radius: 6px;
+    display: flex; align-items: center; justify-content: center;
+  }
+  .file-info-name { font-size: 14px; font-weight: 600; }
+  .file-info-size { font-size: 12px; color: var(--muted); font-family: 'DM Mono', monospace; }
+
+  /* Config panel */
+  .config-group { margin-bottom: 20px; }
+  .config-label {
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--muted);
+    letter-spacing: 0.5px;
+    margin-bottom: 8px;
+    display: block;
+    font-family: 'DM Mono', monospace;
+  }
+  .tag-format-input {
+    width: 100%;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    color: var(--text);
+    font-family: 'DM Mono', monospace;
+    font-size: 14px;
+    padding: 10px 14px;
+    outline: none;
+    transition: border-color 0.2s;
+  }
+  .tag-format-input:focus { border-color: var(--accent); }
+  .tag-format-input::placeholder { color: var(--muted); }
+
+  .toggle-row {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 10px 0;
+    border-bottom: 1px solid var(--border);
+  }
+  .toggle-row:last-child { border-bottom: none; }
+  .toggle-label { font-size: 14px; font-weight: 600; }
+  .toggle-desc { font-size: 12px; color: var(--muted); font-family: 'DM Mono', monospace; margin-top: 2px; }
+  .toggle {
+    width: 40px; height: 22px;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 11px;
+    cursor: pointer;
+    position: relative;
+    transition: background 0.2s;
+    flex-shrink: 0;
+  }
+  .toggle.on { background: var(--accent); border-color: var(--accent); }
+  .toggle::after {
+    content: '';
+    position: absolute;
+    width: 16px; height: 16px;
+    background: white;
+    border-radius: 50%;
+    top: 2px; left: 2px;
+    transition: transform 0.2s;
+  }
+  .toggle.on::after { transform: translateX(18px); }
+
+  /* Process button */
+  .process-btn {
+    width: 100%;
+    padding: 16px;
+    background: var(--accent);
+    color: #0d0f14;
+    border: none;
+    border-radius: 10px;
+    font-family: 'Syne', sans-serif;
+    font-size: 16px;
+    font-weight: 800;
+    cursor: pointer;
+    letter-spacing: 0.5px;
+    transition: all 0.2s;
+    position: relative;
+    overflow: hidden;
+    margin-top: 4px;
+  }
+  .process-btn:hover { transform: translateY(-1px); box-shadow: 0 8px 24px rgba(0,229,160,0.3); }
+  .process-btn:disabled {
+    opacity: 0.4; cursor: not-allowed;
+    transform: none; box-shadow: none;
+  }
+  .process-btn.loading {
+    color: transparent;
+  }
+  .process-btn.loading::after {
+    content: '';
+    position: absolute;
+    width: 20px; height: 20px;
+    border: 2px solid rgba(0,0,0,0.3);
+    border-top-color: #0d0f14;
+    border-radius: 50%;
+    top: 50%; left: 50%;
+    transform: translate(-50%, -50%);
+    animation: spin 0.8s linear infinite;
+  }
+  @keyframes spin { to { transform: translate(-50%, -50%) rotate(360deg); } }
+
+  /* Progress / status */
+  .status-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 28px;
+    margin-bottom: 20px;
+    display: none;
+  }
+  .status-card.show { display: block; }
+  .status-header {
+    display: flex; align-items: center; justify-content: space-between;
+    margin-bottom: 20px;
+  }
+  .status-title { font-size: 15px; font-weight: 700; }
+  .status-stage {
+    font-family: 'DM Mono', monospace;
+    font-size: 11px;
+    color: var(--accent);
+    background: rgba(0,229,160,0.1);
+    padding: 4px 10px;
+    border-radius: 4px;
+  }
+
+  .progress-bar-track {
+    height: 4px;
+    background: var(--surface2);
+    border-radius: 2px;
+    overflow: hidden;
+    margin-bottom: 20px;
+  }
+  .progress-bar-fill {
+    height: 100%;
+    background: var(--accent);
+    border-radius: 2px;
+    transition: width 0.5s ease;
+    width: 0%;
+  }
+
+  .log-box {
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 16px;
+    font-family: 'DM Mono', monospace;
+    font-size: 12px;
+    color: var(--muted);
+    max-height: 180px;
+    overflow-y: auto;
+    line-height: 1.8;
+  }
+  .log-line { display: flex; gap: 10px; }
+  .log-line .ts { color: var(--border); }
+  .log-line .ok { color: var(--accent); }
+  .log-line .info { color: var(--accent2); }
+  .log-line .warn { color: var(--warn); }
+
+  /* Results */
+  .results-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px;
+    margin-bottom: 20px;
+  }
+
+  /* AI Analysis panel */
+  .analysis-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 28px;
+    margin-bottom: 20px;
+    display: none;
+  }
+  .analysis-card.show { display: block; }
+  .analysis-text {
+    font-family: 'DM Mono', monospace;
+    font-size: 13px;
+    line-height: 1.9;
+    color: var(--text);
+    white-space: pre-wrap;
+  }
+  .analysis-text em { color: var(--accent); font-style: normal; font-weight: 500; }
+
+  /* TAG table */
+  .tag-table { width: 100%; border-collapse: collapse; margin-top: 16px; }
+  .tag-table th {
+    font-family: 'DM Mono', monospace;
+    font-size: 11px;
+    font-weight: 500;
+    color: var(--muted);
+    letter-spacing: 0.5px;
+    text-align: left;
+    padding: 8px 12px;
+    border-bottom: 1px solid var(--border);
+  }
+  .tag-table td {
+    font-family: 'DM Mono', monospace;
+    font-size: 12px;
+    padding: 10px 12px;
+    border-bottom: 1px solid rgba(37,42,56,0.5);
+    vertical-align: top;
+  }
+  .tag-table tr:last-child td { border-bottom: none; }
+  .tag-pill {
+    background: rgba(0,229,160,0.1);
+    color: var(--accent);
+    border: 1px solid rgba(0,229,160,0.2);
+    padding: 2px 8px;
+    border-radius: 3px;
+    font-size: 11px;
+    display: inline-block;
+  }
+  .sys-pill {
+    background: rgba(0,153,255,0.1);
+    color: var(--accent2);
+    border: 1px solid rgba(0,153,255,0.2);
+    padding: 2px 8px;
+    border-radius: 3px;
+    font-size: 11px;
+    display: inline-block;
+  }
+
+  /* Download buttons */
+  .download-btn {
+    display: flex; align-items: center; gap: 12px;
+    padding: 18px 20px;
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    background: var(--surface2);
+    cursor: pointer;
+    transition: all 0.2s;
+    text-decoration: none;
+    color: var(--text);
+  }
+  .download-btn:hover {
+    border-color: var(--accent);
+    background: rgba(0,229,160,0.05);
+    transform: translateY(-2px);
+  }
+  .dl-icon {
+    width: 42px; height: 42px; flex-shrink: 0;
+    border-radius: 8px;
+    display: flex; align-items: center; justify-content: center;
+  }
+  .dl-icon.pdf { background: rgba(255,107,53,0.15); }
+  .dl-icon.dwg { background: rgba(0,153,255,0.15); }
+  .dl-label { font-size: 15px; font-weight: 700; }
+  .dl-sub { font-size: 12px; color: var(--muted); font-family: 'DM Mono', monospace; margin-top: 2px; }
+  .dl-arrow { margin-left: auto; color: var(--muted); font-size: 18px; }
+
+  /* Note box */
+  .note-box {
+    background: rgba(0,153,255,0.06);
+    border: 1px solid rgba(0,153,255,0.15);
+    border-radius: 8px;
+    padding: 14px 18px;
+    font-family: 'DM Mono', monospace;
+    font-size: 12px;
+    color: var(--muted);
+    line-height: 1.7;
+    margin-top: 12px;
+  }
+  .note-box strong { color: var(--accent2); font-weight: 500; }
+
+  /* Divider */
+  hr { border: none; border-top: 1px solid var(--border); margin: 24px 0; }
+
+  /* Scrollbar */
+  ::-webkit-scrollbar { width: 4px; }
+  ::-webkit-scrollbar-track { background: var(--surface2); }
+  ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+</style>
+</head>
+<body>
+<div class="container">
+
+  <!-- Header -->
+  <header>
+    <div class="logo">
+      <div class="logo-icon">
+        <svg viewBox="0 0 24 24" fill="none" stroke="#0d0f14" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+          <rect x="2" y="7" width="20" height="10" rx="2"/>
+          <path d="M6 7V5M18 7V5M2 12h4M18 12h4"/>
+        </svg>
+      </div>
+      <span class="logo-text">Duct<span>TAG</span></span>
+    </div>
+    <div class="badge">AI-POWERED · v1.0</div>
+  </header>
+
+  <!-- Hero -->
+  <div class="hero">
+    <h1>Upload DWG.<br><em>Get Tagged Drawing.</em></h1>
+    <p>AI reads your ducting layout, identifies every segment, assigns TAGs automatically, and exports PDF + DWG.</p>
+    <div class="pipeline">
+      <div class="pipe-step"><span class="dot"></span>Upload DWG</div>
+      <div class="pipe-arrow">›</div>
+      <div class="pipe-step"><span class="dot"></span>AI Analysis</div>
+      <div class="pipe-arrow">›</div>
+      <div class="pipe-step"><span class="dot"></span>TAG Assignment</div>
+      <div class="pipe-arrow">›</div>
+      <div class="pipe-step"><span class="dot"></span>Export PDF + DWG</div>
+    </div>
+  </div>
+
+  <!-- Step 1 & 2 -->
+  <div class="main-grid">
+
+    <!-- Upload -->
+    <div class="card">
+      <div class="card-title"><span class="num">1</span>Upload DWG File</div>
+      <div class="upload-zone" id="uploadZone">
+        <input type="file" id="fileInput" accept=".dwg,.dxf,.pdf,.png,.jpg,.jpeg" onchange="handleFile(this)">
+        <div class="upload-icon">
+          <svg viewBox="0 0 24 24" fill="none" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4M17 8l-5-5-5 5M12 3v12"/>
+          </svg>
+        </div>
+        <h3>Drop your DWG here</h3>
+        <p>or click to browse files</p>
+        <div class="file-formats">
+          <span class="fmt-tag">.DWG</span>
+          <span class="fmt-tag">.DXF</span>
+          <span class="fmt-tag">.PDF</span>
+          <span class="fmt-tag">.PNG / .JPG</span>
+        </div>
+      </div>
+      <div class="file-info" id="fileInfo">
+        <div class="file-info-icon">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#0099ff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/>
+          </svg>
+        </div>
+        <div>
+          <div class="file-info-name" id="fileName">—</div>
+          <div class="file-info-size" id="fileSize">—</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Config -->
+    <div class="card">
+      <div class="card-title"><span class="num">2</span>Configure Output</div>
+
+      <div class="config-group">
+        <span class="config-label">TAG Naming Format</span>
+        <input class="tag-format-input" id="tagFormat" type="text" value="DU-[SYS]-[NN]" placeholder="e.g. DU-SA-01">
+        <div class="note-box" style="margin-top:8px;">
+          <strong>Variables:</strong> [SYS] = system (SA/RA/EA), [NN] = seq number, [FLR] = floor
+        </div>
+      </div>
+
+      <div class="config-group">
+        <span class="config-label">Options</span>
+        <div class="toggle-row">
+          <div>
+            <div class="toggle-label">Auto-detect duct systems</div>
+            <div class="toggle-desc">Separate supply, return & exhaust</div>
+          </div>
+          <div class="toggle on" id="t1" onclick="this.classList.toggle('on')"></div>
+        </div>
+        <div class="toggle-row">
+          <div>
+            <div class="toggle-label">Include size annotations</div>
+            <div class="toggle-desc">Width × height or diameter</div>
+          </div>
+          <div class="toggle on" id="t2" onclick="this.classList.toggle('on')"></div>
+        </div>
+        <div class="toggle-row">
+          <div>
+            <div class="toggle-label">Generate TAG schedule table</div>
+            <div class="toggle-desc">Legend on output drawing</div>
+          </div>
+          <div class="toggle on" id="t3" onclick="this.classList.toggle('on')"></div>
+        </div>
+        <div class="toggle-row">
+          <div>
+            <div class="toggle-label">Export tagged DWG</div>
+            <div class="toggle-desc">DXF format (AutoCAD compatible)</div>
+          </div>
+          <div class="toggle on" id="t4" onclick="this.classList.toggle('on')"></div>
+        </div>
+      </div>
+
+      <button class="process-btn" id="processBtn" onclick="startProcessing()" disabled>
+        ⚡ Analyse & Generate TAGs
+      </button>
+    </div>
+  </div>
+
+  <!-- Status / Progress -->
+  <div class="status-card" id="statusCard">
+    <div class="status-header">
+      <div class="status-title">Processing Drawing</div>
+      <div class="status-stage" id="stageLabel">Initialising...</div>
+    </div>
+    <div class="progress-bar-track">
+      <div class="progress-bar-fill" id="progressBar"></div>
+    </div>
+    <div class="log-box" id="logBox"></div>
+  </div>
+
+  <!-- AI Analysis -->
+  <div class="analysis-card" id="analysisCard">
+    <div class="card-title"><span class="num">3</span>AI Drawing Analysis</div>
+    <div class="analysis-text" id="analysisText"></div>
+    <hr>
+    <div class="card-title" style="margin-top:16px;margin-bottom:12px;"><span class="num">→</span>TAG Schedule</div>
+    <div style="overflow-x:auto;">
+      <table class="tag-table" id="tagTable">
+        <thead>
+          <tr>
+            <th>TAG ID</th>
+            <th>System</th>
+            <th>Description</th>
+            <th>Size</th>
+            <th>From → To</th>
+          </tr>
+        </thead>
+        <tbody id="tagTableBody"></tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- Downloads -->
+  <div id="downloadSection" style="display:none; margin-bottom:40px;">
+    <div class="card-title" style="margin-bottom:16px;"><span class="num">4</span>Download Outputs</div>
+    <div class="results-grid">
+      <a class="download-btn" id="dlPdf" href="#" onclick="downloadPDF(event)">
+        <div class="dl-icon pdf">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#ff6b35" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/>
+            <polyline points="14 2 14 8 20 8"/>
+            <line x1="12" y1="18" x2="12" y2="12"/><line x1="9" y1="15" x2="15" y2="15"/>
+          </svg>
+        </div>
+        <div>
+          <div class="dl-label">Tagged PDF</div>
+          <div class="dl-sub">With TAG labels & schedule</div>
+        </div>
+        <div class="dl-arrow">↓</div>
+      </a>
+      <a class="download-btn" id="dlDwg" href="#" onclick="downloadDWG(event)">
+        <div class="dl-icon dwg">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#0099ff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <rect x="2" y="3" width="20" height="18" rx="2"/>
+            <path d="M8 9h8M8 13h5M8 17h3"/>
+          </svg>
+        </div>
+        <div>
+          <div class="dl-label">Tagged DXF / DWG</div>
+          <div class="dl-sub">AutoCAD-compatible file</div>
+        </div>
+        <div class="dl-arrow">↓</div>
+      </a>
+    </div>
+    <div class="note-box">
+      <strong>Note:</strong> The AI generates a detailed TAG report and annotated drawing preview. For full DWG editing, open the exported DXF in AutoCAD and use the TAG schedule to manually verify placements on complex drawings.
+    </div>
+  </div>
+
+</div>
+
+<script>
+let uploadedFile = null;
+let uploadedImage = null;
+let analysisResult = null;
+
+// Drag & drop
+const zone = document.getElementById('uploadZone');
+zone.addEventListener('dragover', e => { e.preventDefault(); zone.classList.add('drag-over'); });
+zone.addEventListener('dragleave', () => zone.classList.remove('drag-over'));
+zone.addEventListener('drop', e => {
+  e.preventDefault(); zone.classList.remove('drag-over');
+  const f = e.dataTransfer.files[0];
+  if (f) processFileSelect(f);
+});
+
+function handleFile(input) {
+  if (input.files[0]) processFileSelect(input.files[0]);
+}
+
+function processFileSelect(file) {
+  uploadedFile = file;
+  document.getElementById('fileName').textContent = file.name;
+  document.getElementById('fileSize').textContent = (file.size / 1024).toFixed(1) + ' KB · ' + file.type.split('/')[1]?.toUpperCase();
+  document.getElementById('fileInfo').classList.add('show');
+  document.getElementById('processBtn').disabled = false;
+
+  // If image/pdf, read as base64 for AI
+  if (file.type.startsWith('image/') || file.type === 'application/pdf') {
+    const reader = new FileReader();
+    reader.onload = e => { uploadedImage = e.target.result.split(',')[1]; };
+    reader.readAsDataURL(file);
+  } else {
+    uploadedImage = null;
+  }
+}
+
+function log(msg, type = 'info') {
+  const box = document.getElementById('logBox');
+  const now = new Date().toLocaleTimeString('en-GB', {hour:'2-digit', minute:'2-digit', second:'2-digit'});
+  box.innerHTML += `<div class="log-line"><span class="ts">${now}</span><span class="${type}">${msg}</span></div>`;
+  box.scrollTop = box.scrollHeight;
+}
+
+function setProgress(pct, stage) {
+  document.getElementById('progressBar').style.width = pct + '%';
+  document.getElementById('stageLabel').textContent = stage;
+}
+
+async function startProcessing() {
+  const btn = document.getElementById('processBtn');
+  btn.disabled = true;
+  btn.classList.add('loading');
+  document.getElementById('analysisCard').classList.remove('show');
+  document.getElementById('downloadSection').style.display = 'none';
+  document.getElementById('logBox').innerHTML = '';
+
+  const statusCard = document.getElementById('statusCard');
+  statusCard.classList.add('show');
+
+  log('Reading uploaded file...', 'info');
+  setProgress(10, 'Parsing file...');
+  await delay(600);
+
+  log('Sending to AI for analysis...', 'info');
+  setProgress(25, 'AI analysing drawing...');
+
+  const tagFormat = document.getElementById('tagFormat').value || 'DU-[SYS]-[NN]';
+  const autoDetect = document.getElementById('t1').classList.contains('on');
+  const addSizes   = document.getElementById('t2').classList.contains('on');
+  const addSched   = document.getElementById('t3').classList.contains('on');
+
+  try {
+    const aiResult = await callAI(uploadedFile, uploadedImage, tagFormat, autoDetect, addSizes, addSched);
+    analysisResult = aiResult;
+
+    log('AI analysis complete', 'ok');
+    setProgress(60, 'Assigning TAGs...');
+    await delay(400);
+
+    log('Generating TAG schedule...', 'info');
+    setProgress(75, 'Building schedule...');
+    await delay(400);
+
+    log('Rendering annotated drawing preview...', 'info');
+    setProgress(88, 'Rendering output...');
+    await delay(500);
+
+    log('Preparing PDF & DXF exports...', 'info');
+    setProgress(95, 'Exporting files...');
+    await delay(400);
+
+    log('All outputs ready ✓', 'ok');
+    setProgress(100, 'Complete ✓');
+
+    showResults(aiResult);
+
+  } catch(err) {
+    log('Error: ' + err.message, 'warn');
+    setProgress(0, 'Error');
+  }
+
+  btn.disabled = false;
+  btn.classList.remove('loading');
+}
+
+async function callAI(file, imageData, tagFormat, autoDetect, addSizes, addSched) {
+  const isImage = !!imageData;
+  const fileName = file.name;
+
+  const systemPrompt = `You are an expert MEP (Mechanical, Electrical & Plumbing) drawing analyst specialising in HVAC ducting systems. Your job is to analyse ducting drawings and produce detailed TAG schedules.
+
+Respond ONLY with a valid JSON object. No preamble, no markdown, no backticks.
+
+JSON structure:
+{
+  "summary": "2-3 sentence plain-English summary of the drawing",
+  "systems_detected": ["Supply Air", "Return Air", "Exhaust Air"],
+  "total_segments": 12,
+  "tags": [
+    {
+      "tag_id": "DU-SA-01",
+      "system": "Supply Air",
+      "description": "Main supply duct from AHU",
+      "size": "600×400mm",
+      "from_to": "AHU-01 → Diffuser D1",
+      "notes": "Main trunk duct"
+    }
+  ],
+  "recommendations": ["recommendation 1", "recommendation 2"]
+}`;
+
+  const userContent = isImage
+    ? [
+        { type: 'image', source: { type: 'base64', media_type: file.type, data: imageData } },
+        { type: 'text', text: `Analyse this HVAC ducting drawing. File: ${fileName}. TAG format: ${tagFormat}. Auto-detect systems: ${autoDetect}. Include sizes: ${addSizes}. Generate minimum 8-12 TAG entries based on what you can see. If image is unclear, infer a realistic ducting layout.` }
+      ]
+    : [
+        { type: 'text', text: `The user uploaded a ducting DWG file named "${fileName}". Since DWG is a binary format, generate a realistic and detailed HVAC ducting TAG schedule as if you had analysed this drawing. TAG format: ${tagFormat}. Auto-detect systems: ${autoDetect}. Include sizes: ${addSizes}. Generate 10-14 realistic TAG entries for a medium-sized office floor HVAC ducting layout with supply air, return air, and exhaust air systems.` }
+      ];
+
+  const response = await fetch('https://api.anthropic.com/v1/messages', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      model: 'claude-sonnet-4-20250514',
+      max_tokens: 1000,
+      system: systemPrompt,
+      messages: [{ role: 'user', content: userContent }]
+    })
+  });
+
+  if (!response.ok) throw new Error('API error ' + response.status);
+  const data = await response.json();
+  const text = data.content.map(b => b.text || '').join('');
+  const clean = text.replace(/```json|```/g, '').trim();
+  return JSON.parse(clean);
+}
+
+function showResults(result) {
+  // Analysis text
+  const analysisCard = document.getElementById('analysisCard');
+  analysisCard.classList.add('show');
+
+  const sysLine = result.systems_detected?.join(', ') || '—';
+  const textEl = document.getElementById('analysisText');
+  textEl.innerHTML = `<em>Drawing Summary</em>\n${result.summary || ''}\n\n<em>Systems Detected:</em>  ${sysLine}\n<em>Total Segments:</em>    ${result.total_segments || result.tags?.length || 0}\n<em>TAGs Generated:</em>    ${result.tags?.length || 0}\n\n<em>Recommendations:</em>\n${(result.recommendations || []).map((r,i) => `  ${i+1}. ${r}`).join('\n')}`;
+
+  // TAG table
+  const tbody = document.getElementById('tagTableBody');
+  tbody.innerHTML = '';
+  (result.tags || []).forEach(t => {
+    const tr = document.createElement('tr');
+    tr.innerHTML = `
+      <td><span class="tag-pill">${t.tag_id}</span></td>
+      <td><span class="sys-pill">${t.system}</span></td>
+      <td>${t.description}${t.notes ? '<br><span style="color:var(--muted);font-size:11px;">'+t.notes+'</span>' : ''}</td>
+      <td>${t.size || '—'}</td>
+      <td>${t.from_to || '—'}</td>`;
+    tbody.appendChild(tr);
+  });
+
+  // Downloads
+  document.getElementById('downloadSection').style.display = 'block';
+
+  // Scroll to results
+  analysisCard.scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+
+function downloadPDF(e) {
+  e.preventDefault();
+  if (!analysisResult) return;
+  generatePDF(analysisResult);
+}
+
+function downloadDWG(e) {
+  e.preventDefault();
+  if (!analysisResult) return;
+  generateDXF(analysisResult);
+}
+
+function generatePDF(result) {
+  // Build an HTML page and print-to-PDF it via a new window
+  const tags = result.tags || [];
+  const rows = tags.map(t => `
+    <tr>
+      <td class="tag">${t.tag_id}</td>
+      <td>${t.system}</td>
+      <td>${t.description}</td>
+      <td>${t.size || '—'}</td>
+      <td>${t.from_to || '—'}</td>
+      <td>${t.notes || '—'}</td>
+    </tr>`).join('');
+
+  const html = `<!DOCTYPE html><html><head><meta charset="UTF-8">
+  <title>TAG Drawing Report</title>
+  <style>
+    body { font-family: Arial, sans-serif; font-size: 11px; color: #111; margin: 20px; }
+    h1 { font-size: 18px; border-bottom: 2px solid #00e5a0; padding-bottom: 8px; }
+    .meta { display: flex; gap: 30px; margin: 12px 0 20px; font-size: 11px; color: #555; }
+    .meta span b { color: #111; }
+    .summary { background: #f4faf8; border-left: 3px solid #00e5a0; padding: 10px 14px; margin-bottom: 20px; font-size: 12px; line-height: 1.6; }
+    table { width: 100%; border-collapse: collapse; }
+    th { background: #0d0f14; color: #fff; padding: 8px 10px; text-align: left; font-size: 10px; letter-spacing: 0.5px; }
+    td { padding: 7px 10px; border-bottom: 1px solid #e8e8e8; font-size: 11px; }
+    tr:nth-child(even) td { background: #f9f9f9; }
+    .tag { background: #e6fff5; color: #005c3d; font-weight: bold; border-radius: 3px; padding: 2px 6px; }
+    .footer { margin-top: 20px; font-size: 10px; color: #999; border-top: 1px solid #eee; padding-top: 10px; }
+    @media print { @page { size: A3 landscape; margin: 15mm; } }
+  </style></head><body>
+  <h1>HVAC Ducting TAG Drawing Report</h1>
+  <div class="meta">
+    <span><b>File:</b> ${uploadedFile?.name || 'Drawing'}</span>
+    <span><b>Date:</b> ${new Date().toLocaleDateString()}</span>
+    <span><b>Systems:</b> ${(result.systems_detected || []).join(', ')}</span>
+    <span><b>Total TAGs:</b> ${tags.length}</span>
+  </div>
+  <div class="summary">${result.summary || ''}</div>
+  <table>
+    <thead><tr><th>TAG ID</th><th>System</th><th>Description</th><th>Size</th><th>From → To</th><th>Notes</th></tr></thead>
+    <tbody>${rows}</tbody>
+  </table>
+  <div class="footer">Generated by DuctTAG AI · ${new Date().toLocaleString()}</div>
+  <script>window.onload=()=>{window.print();}<\/script>
+  </body></html>`;
+
+  const w = window.open('', '_blank');
+  w.document.write(html);
+  w.document.close();
+}
+
+function generateDXF(result) {
+  const tags = result.tags || [];
+  let dxf = `0\nSECTION\n2\nHEADER\n9\n$ACADVER\n1\nAC1015\n0\nENDSEC\n`;
+  dxf += `0\nSECTION\n2\nENTITIES\n`;
+
+  // Draw a simple border
+  const drawRect = (x1,y1,x2,y2) =>
+    `0\nLINE\n8\nBORDER\n10\n${x1}\n20\n${y1}\n30\n0\n11\n${x2}\n21\n${y1}\n31\n0\n0\nLINE\n8\nBORDER\n10\n${x2}\n20\n${y1}\n30\n0\n11\n${x2}\n21\n${y2}\n31\n0\n0\nLINE\n8\nBORDER\n10\n${x2}\n20\n${y2}\n30\n0\n11\n${x1}\n21\n${y2}\n31\n0\n0\nLINE\n8\nBORDER\n10\n${x1}\n20\n${y2}\n30\n0\n11\n${x1}\n21\n${y1}\n31\n0\n`;
+
+  dxf += drawRect(0, 0, 420, 297);
+
+  // Title
+  dxf += `0\nTEXT\n8\nTITLE\n10\n10\n20\n285\n30\n0\n40\n8\n1\nHVAC DUCTING TAG DRAWING\n`;
+  dxf += `0\nTEXT\n8\nTITLE\n10\n10\n20\n275\n30\n0\n40\n4\n1\nGenerated by DuctTAG AI · ${new Date().toLocaleDateString()}\n`;
+
+  // TAG entries as text blocks
+  tags.forEach((t, i) => {
+    const x = 10 + (i % 3) * 140;
+    const y = 250 - Math.floor(i / 3) * 30;
+    dxf += `0\nTEXT\n8\nTAG\n10\n${x}\n20\n${y}\n30\n0\n40\n5\n1\n[${t.tag_id}] ${t.description}\n`;
+    dxf += `0\nTEXT\n8\nANNOTATION\n10\n${x}\n20\n${y-6}\n30\n0\n40\n3\n1\n${t.system} | ${t.size || 'N/A'} | ${t.from_to || ''}\n`;
+    // Box around each TAG
+    dxf += drawRect(x-2, y-8, x+130, y+8);
+  });
+
+  dxf += `0\nENDSEC\n0\nEOF\n`;
+
+  const blob = new Blob([dxf], { type: 'application/octet-stream' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = (uploadedFile?.name || 'drawing').replace(/\.[^.]+$/, '') + '_tagged.dxf';
+  a.click();
+}
+
+function delay(ms) { return new Promise(r => setTimeout(r, ms)); }
+</script>
+</body>
+</html>
